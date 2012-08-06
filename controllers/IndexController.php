@@ -30,6 +30,8 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
         $this->view->navigation($this->_getNavigation());
     }
 
+
+
     private function _getMainForm()
     {
         require_once DATABASE_TRANSFER_DIRECTORY . '/forms/Main.php';
@@ -38,6 +40,16 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
         $form = new DatabaseTransfer_Form_Main();
         return $form;
     }
+
+    private function _getChooseTableForm()
+	    {
+	        require_once DATABASE_TRANSFER_DIRECTORY . '/forms/ChooseTable.php';
+	#        $csvConfig = $this->_getPluginConfig();
+	#        $form = new DatabaseTransfer_Form_Main($csvConfig);
+	        $form = new DatabaseTransfer_Form_ChooseTable();
+	        return $form;
+	    }
+
 
     private function _getNavigation()
     {
@@ -55,9 +67,11 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
         ));
     }
 
-    public function indexAction() //this happens when the form is submitted
+
+	
+    public function indexAction() //this happens when a form is submitted
     {
-		echo "<H1>TEST PRINT 1</H1>";
+#		echo "<H1>TEST PRINT 1</H1>";
         $form = $this->_getMainForm();
         $this->view->form = $form;
 
@@ -68,77 +82,75 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
             return;
         }
 
-#        if (!$form->csv_file->receive()) {
-#            return $this->flashError("Error uploading file.  Please try again.");
-#        }
-
-#        $filePath = $form->csv_file->getFileName();
-#        $filename = $_FILES['csv_file']['name'];
-		
         $delimiter = $form->getValue('column_delimiter');
 		$db_name = $form->getValue('db_name');
 		$db_user = $form->getValue('db_user');
 		$db_pw = $form->getValue('db_pw');
 		$db_host = $form->getValue('db_host');
-
+		
 		$db = new Zend_Db_Adapter_Pdo_Mysql(array(
-		    'host'     => $db_host,
-		    'username' => $db_user,
-		    'password' => $db_pw,
-		    'dbname'   => $db_name
-		));
-
-		
-		
+	    	'host'     => $db_host,
+	    	'username' => $db_user,
+	    	'password' => $db_pw,
+	    	'dbname'   => $db_name));
+	
 #		$table = new DatabaseTransport_Table($db_host, $db_user, $db_pw, $db_name);
-		
 		#echo $db->getConnection()->getAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY);
-		
-		if (!$db) {
-			return $this->flashError('Your file is incorrectly formatted. '
-            . $db->getErrorString());
+
+		if (!$db->getConnection()) {
+			return $this->flashError('Database could not be reached. ' . $db->getErrorString());
         }
 		
-		$table = new DatabaseTransfer_Table($db);
-		
-		
-#        $file = new CsvImport_File($filePath, $delimiter);
-#        if (!$file->parse()) {
-#            return $this->flashError('Your file is incorrectly formatted. '
-#                . $file->getErrorString());
-#        }
-#        $this->session->originalFilename = $filename;
-        $this->session->originalDbname = $filename; //replaced
-#        $this->session->filePath = $filePath;
+		//setting a whole bunch of nice session variables
+        $this->session->originalDbname = $db_name; //replaced
         $this->session->columnDelimiter = $delimiter;
-
+		$this->session->db_name = $db_name;
+		$this->session->db_user = $db_user;
+		$this->session->db_pw = $db_pw;
+		$this->session->db_host = $db_host;
         $this->session->itemTypeId = $form->getValue('item_type_id');
         $this->session->itemsArePublic = $form->getValue('items_are_public');
         $this->session->itemsAreFeatured =  $form->getValue('items_are_featured');
         $this->session->collectionId = $form->getValue('collection_id');
-
-		$this->session->columnNames = $table->getColumnNames();
-		$this->session->columnExamples = $table->getColumnExamples();
+        $this->session->ownerId = $this->getInvokeArg('bootstrap')->currentuser->id; //get the user that imported the stories
 		
-#        $this->session->columnNames = $file->getColumnNames();
-#        $this->session->columnExamples = $file->getColumnExamples();
-#        $this->session->ownerId = $this->getInvokeArg('bootstrap')->currentuser->id;
+		$this->session->tableNames = $db->listTables();
+		
+        $this->_helper->redirector->goto('choose-table');
+		
+#		$table = new DatabaseTransfer_Table($db);
 
-
-		if($form->getValue('choosetable')) {
-            $this->_helper->redirector->goto('choose-table');
-        }
-		else{
-        	$this->_helper->redirector->goto('map-columns');
-		}
+#		$this->session->columnNames = $table->getColumnNames();
+#		$this->session->columnExamples = $table->getColumnExamples();
+#		
+#        $this->_helper->redirector->goto('map-columns');
     }
     
 
+	public function chooseTableAction(){ #this triggers when the choose-table form button is pushed
+
+        require_once DATABASE_TRANSFER_DIRECTORY . '/forms/ChooseTable.php';
+        $form = new DatabaseTransfer_Form_ChooseTable(array(
+            'tableNames' => $this->session->tableNames,
+			'aString' => "ALWAYSTHESAME",
+        ));
+		$form->setTableNames($this->session->tableNames); 
+        $this->view->form = $form;
+		
+		if (!$this->getRequest()->isPost()) { //to prevent the browser from redirecting 
+            return;
+        }
+        if (!$form->isValid($this->getRequest()->getPost())) {
+            return;
+        }
+		$this->_helper->redirector->goto('map-columns');
+	}
+
     public function mapColumnsAction()
     {
-#        if (!$this->_sessionIsValid()) {
-#            return $this->_helper->redirector->goto('index');
-#        }
+        if (!$this->_sessionIsValid()) {
+            return $this->_helper->redirector->goto('index');
+        }
 
         require_once DATABASE_TRANSFER_DIRECTORY . '/forms/Mapping.php';
 #        $form = new CsvImport_Form_Mapping(array(

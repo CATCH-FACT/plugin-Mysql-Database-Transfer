@@ -6,38 +6,22 @@
  * @package CsvImport
  * @author CHNM
  **/
-class DatabaseTransfer_Table implements IteratorAggregate
+class DatabaseTransfer_Table extends Zend_Db_Table_Abstract
 {
-
 	private $_db;
-    private $_filePath;
     private $_columnNames = array();
     private $_columnExamples = array();
     private $_delimiter;
     private $_parseErrors = array();
     private $_rowIterator;
 
-    /**
-     * @param string $filePath Absolute path to the file.
-     * @param string|null $delimiter Optional Column delimiter for the CSV file.
-     */
-    public function __construct($filePath, $delimiter = null) 
+ 	protected $_observer;
+
+    public function init()
     {
-        $this->_filePath = $filePath;
-        if ($delimiter) {
-            $this->_delimiter = $delimiter;
-        }
+        $this->_observer = new MyObserverClass();
     }
 
-    /**
-     * Absolute path to the file.
-     * 
-     * @return string
-     */
-    public function getFilePath() 
-    {
-        return $this->_filePath;
-    }
 
     /**
      * Get an array of headers for the column names
@@ -47,8 +31,7 @@ class DatabaseTransfer_Table implements IteratorAggregate
     public function getColumnNames() 
     {
         if (!$this->_columnNames) {
-            throw new LogicException("CSV file must be validated before "
-                . "retrieving the list of columns.");
+            throw new LogicException("Database must be connected properly before getting ColumnNames.");
         }
         return $this->_columnNames;    
     }
@@ -66,6 +49,8 @@ class DatabaseTransfer_Table implements IteratorAggregate
         }
         return $this->_columnExamples;    
     }
+
+
 
     /**
      * Get iterator.

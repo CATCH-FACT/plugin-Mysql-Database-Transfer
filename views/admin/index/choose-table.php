@@ -6,7 +6,7 @@
 <?php echo $this->navigation()->menu()->setUlClass('section-nav'); ?>
 
 <div id="primary">
-    <h2>Step 3: Map Columns To Elements, Tags, or Files</h2>
+    <h2>Step 2: Select Table</h2>
     <?php echo flash(); ?>
 
     <?php

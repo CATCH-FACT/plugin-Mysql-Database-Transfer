@@ -18,7 +18,7 @@ class DatabaseTransfer_Form_Main extends Omeka_Form
 	private $_db_host = "127.0.0.1";
 	private $_db_user = "root";
 	private $_db_pw = "blorkie1200";
-	private $_db_name = "verhalenbank_plus";
+	private $_db_name = "verhalenbank_prutsversie";
 	
     private $_columnDelimiter = ',';
     private $_fileDestinationDir;
@@ -29,8 +29,6 @@ class DatabaseTransfer_Form_Main extends Omeka_Form
         parent::init();
         $this->setAttrib('id', 'databasetransfer');
         $this->setMethod('post');
-
-//        $this->_addFileElement(); //file upload button
 		
 		$this->_addDatabaseElements(); //add the elements for the database settings
 		
@@ -83,10 +81,6 @@ class DatabaseTransfer_Form_Main extends Omeka_Form
     }
 
     private function _addDatabaseElements(){
-/*		host     = "127.0.0.1"
-		username = "root"
-		password = "blorkie1200"
-		dbname   = "verhalenbank_omeka"*/
 	    $this->addElement('text', 'db_host', array(
             'label' => 'Fill out the hostname of the db (127.0.0.1)',
             'description' => "Enter the IP address of the host if you have a database present somewhere that you want to connect to.",
