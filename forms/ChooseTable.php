@@ -21,15 +21,13 @@ class DatabaseTransfer_Form_ChooseTable extends Omeka_Form
 		$values = get_db()->getTable('Collection')->findPairsForSelectForm();
 
 #		die(print_r($this->_tableNames));
+#		echo "testing 123 <pre>:";
+#		print_r($this);
+#		echo $this->aString;
+#		print "</pre>";
 		
-		echo "testing 123 <pre>:";
-		print_r($this);
-		echo $this->aString;
-		print "</pre>";
-		
-		
-		$this->addElement('select', 'collection_id', array(
-		    'label' => 'Select Collection',
+		$this->addElement('select', 'table_id', array(
+		    'label' => 'Select Table Name',
 		    'multiOptions' => $this->_tableNames,
 		));
 		
@@ -43,7 +41,7 @@ class DatabaseTransfer_Form_ChooseTable extends Omeka_Form
 
 		//next button!
         $this->addElement('submit', 'submit', array(
-            'label' => 'Assign column names',
+            'label' => 'Assign column names ->',
             'class' => 'submit submit-medium',
         ));
     }
@@ -51,7 +49,7 @@ class DatabaseTransfer_Form_ChooseTable extends Omeka_Form
     public function setTableNames($tableNames)
     {
         $this->_tableNames = $tableNames;
-		print_r($this->_tableNames);
+#		print_r($this->_tableNames);
     }
     
 	public function getTableNames()

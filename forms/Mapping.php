@@ -19,10 +19,13 @@ class DatabaseTransfer_Form_Mapping extends Omeka_Form
         $this->setAttrib('id', 'databasetransfer-mapping');
         $this->setMethod('post'); 
 
-        $elementsByElementSetName = 
-            csv_import_get_elements_by_element_set_name($this->_itemTypeId);
-        $elementsByElementSetName = array('' => 'Select Below') 
-                                  + $elementsByElementSetName;
+        $elementsByElementSetName = csv_import_get_elements_by_element_set_name($this->_itemTypeId);
+        $elementsByElementSetName = array('' => 'Select Below') + $elementsByElementSetName;
+
+#		echo "<pre>:";
+#		print_r($elementsByElementSetName);
+#		print "</pre>";
+
         foreach ($this->_columnNames as $index => $colName) {
             $rowSubForm = new Zend_Form_SubForm();
             $rowSubForm->addElement('select',
