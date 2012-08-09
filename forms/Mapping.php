@@ -133,13 +133,10 @@ class DatabaseTransfer_Form_Mapping extends Omeka_Form
     {
         $columnMap = null;
         if ($this->isTagMapped($index)) {
-#            $columnMap = new CsvImport_ColumnMap_Tag($columnName);
            $columnMap = new DatabaseTransfer_ColumnMap_Tag($columnName);
         } else if ($this->isFileMapped($index)) {
-#            $columnMap = new CsvImport_ColumnMap_File($columnName); // WHAT THIS?
             $columnMap = new DatabaseTransfer_ColumnMap_File($columnName);
         } else if ($elementId = $this->getMappedElementId($index)) {
-#            $columnMap = new CsvImport_ColumnMap_Element($columnName);
             $columnMap = new DatabaseTransfer_ColumnMap_Element($columnName);
             $columnMap->setOptions(array('elementId' => $elementId,
                                          'isHtml' => $this->_getRowValue($index, 'html')));

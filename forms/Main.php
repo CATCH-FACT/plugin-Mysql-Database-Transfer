@@ -1,25 +1,20 @@
 <?php
-/**
- * @version $Id$
- * @copyright Center for History and New Media, 2008-2011
- * @license http://www.gnu.org/licenses/gpl-3.0.txt
- * @package CsvImport
- */
 
 /**
  * The form on csv-import/index/index.
  *
- * @package CsvImport
- * @author CHNM
- * @copyright Center for History and New Media, 2008-2011
+ * @package DatabaseTransfer
+ * @author Iwe Muiser
+ * @copyright Meertens institute, 2012
  */
 class DatabaseTransfer_Form_Main extends Omeka_Form
 {
 	private $_db_host = "127.0.0.1";
 	private $_db_user = "root";
-	private $_db_pw = "blorkie1200";
-	private $_db_name = "verhalenbank_prutsversie";
-	
+	private $_db_pw = "";
+#	private $_db_name = "verhalenbank_prutsversie";
+	private $_db_name = "verhalenbank_plus";
+
     private $_columnDelimiter = ',';
     private $_fileDestinationDir;
     private $_maxFileSize;

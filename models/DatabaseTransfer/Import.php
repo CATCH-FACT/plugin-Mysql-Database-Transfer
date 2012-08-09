@@ -1,12 +1,11 @@
 <?php
 /**
- * DatabaseTransfer_Import - represents a csv import event
+ * DatabaseTransfer_Import - represents a table import event
  *
  * @version $Id$
- * @package CsvImport
- * @author CHNM
- * @copyright Center for History and New Media, 2008-2011
- * @license http://www.gnu.org/licenses/gpl-3.0.txt
+ * @package DatabaseTransfer
+ * @author Iwe Muiser
+ * @copyright Meertens Institute 2012
  **/
 class DatabaseTransfer_Import extends Omeka_Record
 {
@@ -23,13 +22,23 @@ class DatabaseTransfer_Import extends Omeka_Record
     const PAUSED = 'paused';
 
     public $original_dbname;
-    public $file_position = 0;
+
+	public $db_name;
+	public $db_user;
+	public $db_pw;
+	public $db_host;
+	public $db_table;
+
+    private $_importedCount = 0;
+	private $_dbTable;
+	private $_dbE;
+	
+    public $table_position = 0;
     public $item_type_id;
     public $collection_id;
     public $owner_id;
     public $added;
 
-    public $delimiter;
     public $is_public;
     public $is_featured;
     public $skipped_row_count = 0;
@@ -37,9 +46,7 @@ class DatabaseTransfer_Import extends Omeka_Record
     public $status;
     public $serialized_column_maps;
 
-    private $_csvFile;
-    private $_importedCount = 0;
-
+	
     /**
      * Batch importing is not enabled by default.
      */
@@ -52,7 +59,7 @@ class DatabaseTransfer_Import extends Omeka_Record
      * @var array
      */
     private $_columnMaps;
-
+	
     public function setItemsArePublic($flag)
     {
         $booleanFilter = new Omeka_Filter_Boolean;
@@ -70,9 +77,26 @@ class DatabaseTransfer_Import extends Omeka_Record
         $this->collection_id = (int)$id;
     }
 
-    public function setColumnDelimiter($delimiter)
+    public function setDbName($db_name)
     {
-        $this->delimiter = $delimiter;
+        $this->db_name = $db_name;
+    }
+
+    public function setDbUser($db_user)
+    {
+        $this->db_user = $db_user;
+    }
+    public function setDbPw($db_pw)
+    {
+        $this->db_pw = $db_pw;
+    }
+    public function setDbHost($db_host)
+    {
+        $this->db_host = $db_host;
+    }
+    public function setDbTable($db_table)
+    {
+        $this->db_table = $db_table;
     }
 
     public function setOriginalDbname($dbname)
@@ -95,7 +119,6 @@ class DatabaseTransfer_Import extends Omeka_Record
         $this->owner_id = $userId;
     }
 
-
     private function _getOwner()
     {
         if (!$this->_owner) {
@@ -110,13 +133,13 @@ class DatabaseTransfer_Import extends Omeka_Record
 
     public function setColumnMaps($maps)
     {
-        if ($maps instanceof CsvImport_ColumnMap_Set) {
+        if ($maps instanceof DatabaseTransfer_ColumnMap_Set) {
             $mapSet = $maps;
         } else if (is_array($maps)) {
-            $mapSet = new CsvImport_ColumnMap_Set($maps);
+            $mapSet = new DatabaseTransfer_ColumnMap_Set($maps);
         } else {
             throw new InvalidArgumentException("Maps must be either an "
-                . "array or an instance of CsvImport_ColumnMap_Set.");
+                . "array or an instance of DatabaseTransfer_ColumnMap_Set.");
         }
         $this->_columnMaps = $mapSet;
     }
@@ -135,10 +158,37 @@ class DatabaseTransfer_Import extends Omeka_Record
         $this->_batchSize = (int)$size;
     }
 
-    public function getIterator()
+    public function getIterator() //ADJUSTED VERSION NEEDED
     {
-        return $this->getCsvFile()->getIterator();
+		#HAS TO RETURN A TABLE ITERATOR!!!! 
+#        return $this->getCsvFile()->getIterator();
+#		return $this->getRowSet()->getIterator();
+		return $this->getRowSet(); //ITERATOR??
     }
+
+	public function getDbE(){
+		$this->_dbE = new DatabaseTransfer_Db(array( //call database for checking
+	    	'host'     => $this->db_host,
+	    	'username' => $this->db_user,
+	    	'password' => $this->db_pw,
+	    	'dbname'   => $this->db_name));
+		return $this->_dbE;
+	}
+
+    public function getDbTable() //Previously getCsvFile()
+    {
+		
+        if (empty($this->_dbTable)) {
+			$this->_dbTable = new DatabaseTransfer_Table(array('name' => $this->db_table, 'db' => $this->getDbE())); //-->works with session var??
+#            $this->_dbTable = new DatabaseTransfer_Table($this->_dbHost, $this->_dbName);	//CsvImport_File($this->file_path, $this->delimiter);
+        }
+        return $this->_dbTable;
+    }
+
+	public function getRowSet(){ // because it implements seekableIterator
+		$this->_rowSet = $this->getDbTable()->fetchAll(); //fetches a RowSet_Abstract element from the table element
+		return $this->_rowSet;
+	}
 
     protected function beforeSave()
     {
@@ -184,13 +234,13 @@ class DatabaseTransfer_Import extends Omeka_Record
      *
      * @return boolean true if the import is successful, else false
      */
-    public function start()
+    public function start() //started by ImportTask process (ran in indexController)
     {
         $this->_log("Started import at: %time%");
         $this->status = self::IN_PROGRESS;
         $this->forceSave();
         
-        $this->_importLoop($this->file_position);
+        $this->_importLoop($this->table_position);
         return !$this->isError();
     }
 
@@ -208,77 +258,8 @@ class DatabaseTransfer_Import extends Omeka_Record
         return true;
     }
 
-    public function resume()
-    {
-        if (!$this->isQueued()) {
-            $this->_log("Cannot resume an import that has not been paused.");
-            return false;
-        }
-        $this->_log("Resumed import at: %time%");
-        $this->status = self::IN_PROGRESS;
-        $this->forceSave();
-
-        $this->_importLoop($this->file_position);
-        return !$this->isError();
-    }
-
-    private function _importLoop($startAt = null)
-    {
-        register_shutdown_function(array($this, 'stop'));
-        $itemMetadata = array(
-            'public'         => $this->is_public,
-            'featured'       => $this->is_featured,
-            'item_type_id'   => $this->item_type_id,
-            'collection_id'  => $this->collection_id,
-            'tag_entity'     => $this->_getOwner()->Entity,
-        );
-
-        $maps = $this->getColumnMaps();
-        $rows = $this->getIterator();
-        $rows->rewind();
-        if ($startAt) {
-            $rows->seek($startAt);
-        }
-        $rows->skipInvalidRows(true);
-        $this->_log("Item import loop started at: %time%");
-        $this->_log("Memory usage: %memory%");
-        while ($rows->valid()) {
-            try {
-                $row = $rows->current();
-                $index = $rows->key();
-                $this->skipped_row_count += $rows->getSkippedCount();
-
-                if ($item = $this->_addItemFromRow($row, $itemMetadata, $maps)) {
-                    release_object($item);
-                } else {
-                    $this->skipped_item_count++;
-                }
-                $this->file_position = $this->getIterator()->tell();
-                if ($this->_batchSize && ($index % $this->_batchSize == 0)) {
-                    $this->_log("Finished batch of $this->_batchSize "
-                        . "items at: %time%");
-                    $this->_log("Memory usage: %memory%");
-                    return $this->queue();
-                }
-
-                $rows->next();
-            } catch (Omeka_Job_Worker_InterruptException $e) {
-                // Interruptions usually indicate that we should resume from
-                // the last stopping position.
-                return $this->queue();
-            } catch (Exception $e) {
-                $this->status = self::ERROR;
-                $this->forceSave();
-                $this->_log($e, Zend_Log::ERR);
-                throw $e;
-            }
-        }
-        return $this->finish();
-    }
-
     /**
      * Stop the import.
-     *
      * Sets status flag to 'stopped';
      */
     public function stop()
@@ -310,29 +291,99 @@ class DatabaseTransfer_Import extends Omeka_Record
         $this->forceSave();
     }
 
+    public function resume()
+    {
+        if (!$this->isQueued()) {
+            $this->_log("Cannot resume an import that has not been paused.");
+            return false;
+        }
+        $this->_log("Resumed import at: %time%");
+        $this->status = self::IN_PROGRESS;
+        $this->forceSave();
+
+        $this->_importLoop($this->table_position);
+        return !$this->isError();
+    }
+
+    private function _importLoop($startAt = null)
+    {
+        register_shutdown_function(array($this, 'stop'));
+        $itemMetadata = array(
+            'public'         => $this->is_public,
+            'featured'       => $this->is_featured,
+            'item_type_id'   => $this->item_type_id,
+            'collection_id'  => $this->collection_id,
+            'tag_entity'     => $this->_getOwner()->Entity,
+        );
+
+        $maps = $this->getColumnMaps();
+        $rows = $this->getIterator();
+        $rows->rewind();
+        if ($startAt) {
+            $rows->seek($startAt);
+        }
+#        $rows->skipInvalidRows(true);
+        $this->_log("Item import loop started at: %time%");
+        $this->_log("Memory usage: %memory%");
+        while ($rows->valid()) {							//actual input procedure
+            try {
+                $preRow = $rows->current(); //ToArray to conform to the input standard
+				$row = $preRow->toArray();
+                $index = $rows->key();
+#                $this->skipped_row_count += $rows->getSkippedCount();
+                if ($item = $this->_addItemFromRow($row, $itemMetadata, $maps)) { //actual input in DB
+                    release_object($item);
+                } else {
+                    $this->skipped_item_count++;
+                }
+				print "<pre>";
+#				print_r($this->getIterator());
+				print "</pre>";
+                $this->table_position = $this->getIterator()->key();
+                if ($this->_batchSize && ($index % $this->_batchSize == 0)) {
+                    $this->_log("Finished batch of $this->_batchSize "
+                        . "items at: %time%");
+                    $this->_log("Memory usage: %memory%");
+                    return $this->queue();
+                }
+                $rows->next();
+            } catch (Omeka_Job_Worker_InterruptException $e) {
+                // Interruptions usually indicate that we should resume from
+                // the last stopping position.
+                return $this->queue();
+            } catch (Exception $e) {
+                $this->status = self::ERROR;
+                $this->forceSave();
+                $this->_log($e, Zend_Log::ERR);
+                throw $e;
+            }
+        }
+        return $this->finish();
+    }
+
     // adds an item based on the row data
     // returns inserted Item
     private function _addItemFromRow($row, $itemMetadata, $maps)
     {
         $result = $maps->map($row);
-        $fileUrls = $result[CsvImport_ColumnMap::TARGET_TYPE_FILE];
-        $elementTexts = $result[CsvImport_ColumnMap::TARGET_TYPE_ELEMENT];
-        $tags = $result[CsvImport_ColumnMap::TARGET_TYPE_TAG];
+        $fileUrls = $result[DatabaseTransfer_ColumnMap::TARGET_TYPE_FILE];
+        $elementTexts = $result[DatabaseTransfer_ColumnMap::TARGET_TYPE_ELEMENT];
+        $tags = $result[DatabaseTransfer_ColumnMap::TARGET_TYPE_TAG];
 
         //If this is coming from CSV Report, bring in the itemmetadata coming from the report
 
-        if(!is_null($result[CsvImport_ColumnMap::METADATA_COLLECTION])) {
-            $itemMetadata['collection_id'] = $result[CsvImport_ColumnMap::METADATA_COLLECTION];
+        if(!is_null($result[DatabaseTransfer_ColumnMap::METADATA_COLLECTION])) {
+            $itemMetadata['collection_id'] = $result[DatabaseTransfer_ColumnMap::METADATA_COLLECTION];
         }
-        if(!is_null($result[CsvImport_ColumnMap::METADATA_PUBLIC])) {
-            $itemMetadata['public'] = $result[CsvImport_ColumnMap::METADATA_PUBLIC];
+        if(!is_null($result[DatabaseTransfer_ColumnMap::METADATA_PUBLIC])) {
+            $itemMetadata['public'] = $result[DatabaseTransfer_ColumnMap::METADATA_PUBLIC];
         }
-        if(!is_null($result[CsvImport_ColumnMap::METADATA_FEATURED])) {
-            $itemMetadata['featured'] = $result[CsvImport_ColumnMap::METADATA_FEATURED];
+        if(!is_null($result[DatabaseTransfer_ColumnMap::METADATA_FEATURED])) {
+            $itemMetadata['featured'] = $result[DatabaseTransfer_ColumnMap::METADATA_FEATURED];
         }
         
-        if(!empty($result[CsvImport_ColumnMap::METADATA_ITEM_TYPE])) {
-            $itemMetadata['item_type_name'] = $result[CsvImport_ColumnMap::METADATA_ITEM_TYPE];
+        if(!empty($result[DatabaseTransfer_ColumnMap::METADATA_ITEM_TYPE])) {
+            $itemMetadata['item_type_name'] = $result[DatabaseTransfer_ColumnMap::METADATA_ITEM_TYPE];
         }
 
         
@@ -370,29 +421,20 @@ class DatabaseTransfer_Import extends Omeka_Record
 
     private function recordImportedItemId($itemId)
     {
-        $csvImportedItem = new CsvImport_ImportedItem();
-        $csvImportedItem->setArray(array('import_id' => $this->id, 'item_id' =>
+        $tableImportedItem = new DatabaseTransfer_ImportedItem();
+        $tableImportedItem->setArray(array('import_id' => $this->id, 'item_id' =>
             $itemId));
-        $csvImportedItem->forceSave();
+        $tableImportedItem->forceSave();
         $this->_importedCount++;
-    }
-
-    public function getDbTable()
-    {
-        if (empty($this->_dbName)) {
-            $this->_dbName = new DatabaseTransfer_Table($this->_dbHost, $this->_dbName);//CsvImport_File($this->file_path,
-                $this->delimiter);
-        }
-        return $this->_dbName;
     }
 
     public function getColumnMaps()
     {
         if($this->_columnMaps === null) {
             $columnMaps = unserialize($this->serialized_column_maps);
-            if (!($columnMaps instanceof CsvImport_ColumnMap_Set)) {
+            if (!($columnMaps instanceof DatabaseTransfer_ColumnMap_Set)) {
                 throw new UnexpectedValueException("Column maps must be "
-                    . "an instance of CsvImport_ColumnMap_Set. Instead, the "
+                    . "an instance of DatabaseTransfer_ColumnMap_Set. Instead, the "
                     . "following was given: " . var_export($columnMaps, true));
             }
             $this->_columnMaps = $columnMaps;
@@ -407,7 +449,7 @@ class DatabaseTransfer_Import extends Omeka_Record
         $this->forceSave();
 
         $db = $this->getDb();
-        $searchSql = "SELECT item_id FROM $db->CsvImport_ImportedItem"
+        $searchSql = "SELECT item_id FROM $db->DatabaseTransfer_ImportedItem"
                    . " WHERE import_id = " . (int)$this->id
                    . " LIMIT " . self::UNDO_IMPORT_LIMIT_PER_QUERY;
         $it = $this->getTable('Item');
@@ -420,7 +462,7 @@ class DatabaseTransfer_Import extends Omeka_Record
                 $item->delete();
                 release_object($item);
             }
-            $db->delete($db->CsvImport_ImportedItem, "item_id $inClause");
+            $db->delete($db->DatabaseTransfer_ImportedItem, "item_id $inClause");
         }
 
         $this->status = self::COMPLETED_UNDO;
@@ -432,7 +474,7 @@ class DatabaseTransfer_Import extends Omeka_Record
     // unimport
     public function getImportedItemCount()
     {
-        $iit = $this->getTable('CsvImport_ImportedItem');
+        $iit = $this->getTable('DatabaseTransfer_ImportedItem');
         $sql = $iit->getSelectForCount()->where('`import_id` = ?');
         $importedItemCount = $this->getDb()->fetchOne($sql, array($this->id));
         return $importedItemCount;
@@ -462,7 +504,7 @@ class DatabaseTransfer_Import extends Omeka_Record
             if (strpos($msg, '%memory%') !== false) {
                 $msg = str_replace('%memory%', memory_get_usage(), $msg);
             }
-            $logger->log('[CsvImport] ' . $msg, $priority);
+            $logger->log('[DatabaseTransfer] ' . $msg, $priority);
         }
     }
 }

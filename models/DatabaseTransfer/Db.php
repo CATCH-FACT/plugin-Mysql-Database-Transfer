@@ -1,4 +1,10 @@
 <?php
+/*
+*	Stolen UTF-8 database connection extension
+*	from: Bastiaans Blog
+*/
+
+
 class DatabaseTransfer_Db extends Zend_Db_Adapter_Pdo_Mysql {  
   
    protected function _connect() {  
