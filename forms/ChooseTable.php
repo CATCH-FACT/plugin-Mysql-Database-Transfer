@@ -20,24 +20,12 @@ class DatabaseTransfer_Form_ChooseTable extends Omeka_Form
 		
 		$values = get_db()->getTable('Collection')->findPairsForSelectForm();
 
-#		die(print_r($this->_tableNames));
-#		echo "testing 123 <pre>:";
-#		print_r($this);
-#		echo $this->aString;
-#		print "</pre>";
-		
 		$this->addElement('select', 'table_id', array(
 		    'label' => 'Select Table Name',
 		    'multiOptions' => $this->_tableNames,
 		));
 		
 		//Set the collection that the imported items will belong to
-#        $values = get_db()->getTable('Collection')->findPairsForSelectForm();
-#        $values = array('' => 'Select Collection') + $values;
-#        $this->addElement('select', 'collection_id', array(
-#            'label' => 'Select Collection',
-#            'multiOptions' => $values,
-#        ));
 
 		//next button!
         $this->addElement('submit', 'submit', array(
@@ -49,7 +37,6 @@ class DatabaseTransfer_Form_ChooseTable extends Omeka_Form
     public function setTableNames($tableNames)
     {
         $this->_tableNames = $tableNames;
-#		print_r($this->_tableNames);
     }
     
 	public function getTableNames()

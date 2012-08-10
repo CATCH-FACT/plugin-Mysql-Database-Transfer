@@ -12,8 +12,7 @@ class DatabaseTransfer_Form_Main extends Omeka_Form
 	private $_db_host = "127.0.0.1";
 	private $_db_user = "root";
 	private $_db_pw = "";
-#	private $_db_name = "verhalenbank_prutsversie";
-	private $_db_name = "verhalenbank_plus";
+	private $_db_name = "";
 
     private $_columnDelimiter = ',';
     private $_fileDestinationDir;

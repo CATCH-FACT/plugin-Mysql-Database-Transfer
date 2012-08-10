@@ -4,11 +4,6 @@ class DatabaseTransfer_Table extends Zend_Db_Table_Abstract
 {
 	
 	private $_info;
-	private $_db_name;
-	private $_db_user;
-	private $_db_pw;
-	private $_db_host;
-	private $_db_table;
 	
     public function getColumnNames() 
     {
@@ -23,10 +18,10 @@ class DatabaseTransfer_Table extends Zend_Db_Table_Abstract
 
     public function getColumnExampleAsArray() 
     {
-        $select  = $this->select()->limit(5, 0); //get 5 first items from db
+        $select  = $this->select()->limit(5000, 0); //get 5 first items from db
 		$rows = $this->fetchAll($select);
 		$rows = $rows->toArray();
-		$onrblEdada = rand(0,4);
+		$onrblEdada = rand(0,count($rows));
 		return $rows[$onrblEdada]; //return a random item from the set
     }
 
@@ -43,22 +38,4 @@ class DatabaseTransfer_Table extends Zend_Db_Table_Abstract
 		print gettype($_example);
 		return $_example;
 	}
-	
-	/**
-     * Get iterator.
-     * 
-     * @return 
-     */
-    public function getIterator()
-    {
-        if (!$this->_rowIterator) {
-            $this->_rowIterator = new DatabaseTransfer_RowIterator(
-                $this->db_name,
-				$this->db_user,
-				$this->db_pw,
-				$this->db_host, 
-				$this->db_table);
-        }
-        return $this->_rowIterator;
-    }
 }

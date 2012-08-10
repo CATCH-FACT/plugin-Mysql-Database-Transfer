@@ -12,6 +12,7 @@
         <th>Use HTML?</th>
         <th>Tags?</th>
         <th>File?</th>
+        <th>Delimiter (repeat fields)</th>
     </tr>
     </thead>
     <tbody>
@@ -25,6 +26,11 @@ for($i = 0; $i < count($colNames); $i++): ?>
         <?php echo $this->form->getSubForm("row$i"); ?>
         </tr>
 <?php endfor; ?>
+<!--	<tr><td colspan="7"><hr></td></tr>
+	<tr>
+		<td><strong><?php echo "Additional Value"; ?></strong></td>
+		<?php echo $this->form->getSubForm("additional"); ?> -->
+</tr>
     </tbody>
     </table>
     <fieldset>

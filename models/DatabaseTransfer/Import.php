@@ -177,16 +177,18 @@ class DatabaseTransfer_Import extends Omeka_Record
 
     public function getDbTable() //Previously getCsvFile()
     {
-		
         if (empty($this->_dbTable)) {
 			$this->_dbTable = new DatabaseTransfer_Table(array('name' => $this->db_table, 'db' => $this->getDbE())); //-->works with session var??
 #            $this->_dbTable = new DatabaseTransfer_Table($this->_dbHost, $this->_dbName);	//CsvImport_File($this->file_path, $this->delimiter);
         }
+		$this->_log("Table loaded: Memory usage: %memory%");
         return $this->_dbTable;
     }
 
 	public function getRowSet(){ // because it implements seekableIterator
-		$this->_rowSet = $this->getDbTable()->fetchAll(); //fetches a RowSet_Abstract element from the table element
+		//fetches a RowSet_Abstract element from the table element
+		##TAKES WAAAAAAAAAAY TOO MUCH MEMORY!!!!!!!!!!!!!
+		$this->_rowSet = $this->getDbTable()->fetchAll(); 
 		return $this->_rowSet;
 	}
 
@@ -307,6 +309,7 @@ class DatabaseTransfer_Import extends Omeka_Record
 
     private function _importLoop($startAt = null)
     {
+		$this->_log("Import Loop started: %time%");
         register_shutdown_function(array($this, 'stop'));
         $itemMetadata = array(
             'public'         => $this->is_public,
@@ -317,28 +320,26 @@ class DatabaseTransfer_Import extends Omeka_Record
         );
 
         $maps = $this->getColumnMaps();
+        $this->_log("Columns Mapped: Memory usage: %memory%");
         $rows = $this->getIterator();
+        $this->_log("Iterator loaded: Memory usage: %memory%");
         $rows->rewind();
         if ($startAt) {
             $rows->seek($startAt);
         }
-#        $rows->skipInvalidRows(true);
         $this->_log("Item import loop started at: %time%");
         $this->_log("Memory usage: %memory%");
-        while ($rows->valid()) {							//actual input procedure
+        while ($rows->valid()) {												//actual input procedure loop
+			$this->_log("input procedure loop: %time%, %memory%");
             try {
-                $preRow = $rows->current(); //ToArray to conform to the input standard
-				$row = $preRow->toArray();
+                $preRow = $rows->current(); 
+				$row = $preRow->toArray();//ToArray to conform to the input standard
                 $index = $rows->key();
-#                $this->skipped_row_count += $rows->getSkippedCount();
                 if ($item = $this->_addItemFromRow($row, $itemMetadata, $maps)) { //actual input in DB
                     release_object($item);
                 } else {
                     $this->skipped_item_count++;
                 }
-				print "<pre>";
-#				print_r($this->getIterator());
-				print "</pre>";
                 $this->table_position = $this->getIterator()->key();
                 if ($this->_batchSize && ($index % $this->_batchSize == 0)) {
                     $this->_log("Finished batch of $this->_batchSize "
@@ -386,10 +387,13 @@ class DatabaseTransfer_Import extends Omeka_Record
             $itemMetadata['item_type_name'] = $result[DatabaseTransfer_ColumnMap::METADATA_ITEM_TYPE];
         }
 
-        
+		print "<pre><strong>";
+#        print_r($itemMetadata); //hoe
+        print_r($elementTexts); //wat
+		print "</strong></pre>";
         try {
-            $item = insert_item(array_merge(array('tags' => $tags),
-                $itemMetadata), $elementTexts);
+			//The actual insertion of data to the Omeka database!
+            $item = insert_item(array_merge(array('tags' => $tags), $itemMetadata), $elementTexts); 
         } catch (Omeka_Validator_Exception $e) {
             $this->_log($e, Zend_Log::ERR);
             return false;

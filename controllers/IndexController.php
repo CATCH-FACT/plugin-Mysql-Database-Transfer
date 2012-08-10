@@ -68,6 +68,8 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
         $form = $this->_getMainForm();
         $this->view->form = $form;
 
+		echo "<H1>MEM limit:".@$dbConfig['memoryLimit']."</H1>";
+
         if (!$this->getRequest()->isPost()) {
             return;
         }
@@ -163,8 +165,6 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
             return;
         }
 
-		print "<pre>POST succeed</pre>";
-
 		//No show from here (except if redirect is not triggered)
         $columnMaps = $form->getMappings(); //mappings from form
         if (count($columnMaps) == 0) {
@@ -193,10 +193,6 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
         $databaseTransfer->forceSave(); //saving status of import in database.
 
         $dbConfig = $this->_getPluginConfig();
-#		print "<pre>";
-#		print_r($dbConfig);
-#		print_r($databaseTransfer->id	);
-#		print "</pre>";
 
         $jobDispatcher = Zend_Registry::get('job_dispatcher');		//get Omeka job dispatcher
         $jobDispatcher->setQueueName('imports');					//give a que name
@@ -207,11 +203,10 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
 	                'batchSize' => @$dbConfig['batchSize'],
 	            )
 		);
-
-        $this->session->unsetAll();
-        $this->flashSuccess('Successfully started the import. Reload this page '
-            . 'for status updates.');
-        $this->_helper->redirector->goto('browse');
+#        $this->session->unsetAll();
+#        $this->flashSuccess('Successfully started the import. Reload this page '
+#            . 'for status updates.');
+#        $this->_helper->redirector->goto('browse');
 
     }
     
@@ -241,6 +236,34 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
             }
         }
         return true;
+    }
+
+    public function undoImportAction()
+    {
+        $databaseTransfer = $this->findById();
+        $databaseTransfer->status = DatabaseTransfer_Import::QUEUED;
+        $databaseTransfer->forceSave();
+
+        $jobDispatcher = Zend_Registry::get('job_dispatcher');
+        $jobDispatcher->setQueueName('imports');
+        $jobDispatcher->send('DatabaseTransfer_ImportTask',
+            array('importId' => $databaseTransfer->id, 'method' => 'undo'));
+        $this->flashSuccess('Successfully started to undo the import. Reload '
+            . 'this page for status updates.');
+        $this->_helper->redirector->goto('browse');
+    }
+    
+    public function clearHistoryAction()
+    {
+        $databaseTransfer = $this->findById();
+        if ($databaseTransfer->status ==
+            DatabaseTransfer_Import::COMPLETED_UNDO
+        ) {
+            $databaseTransfer->delete();
+            $this->flashSuccess("Successfully cleared the history "
+                . " of the import.");
+        }
+        $this->_helper->redirector->goto('browse');
     }
     
 }

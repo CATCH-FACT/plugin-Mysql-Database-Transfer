@@ -22,10 +22,7 @@ class DatabaseTransfer_Form_Mapping extends Omeka_Form
         $elementsByElementSetName = csv_import_get_elements_by_element_set_name($this->_itemTypeId);
         $elementsByElementSetName = array('' => 'Select Below') + $elementsByElementSetName;
 
-#		echo "<pre>:";
-#		print_r($elementsByElementSetName);
-#		print "</pre>";
-
+	
         foreach ($this->_columnNames as $index => $colName) {
             $rowSubForm = new Zend_Form_SubForm();
             $rowSubForm->addElement('select',
@@ -38,10 +35,60 @@ class DatabaseTransfer_Form_Mapping extends Omeka_Form
             $rowSubForm->addElement('checkbox', 'html');
             $rowSubForm->addElement('checkbox', 'tags');
             $rowSubForm->addElement('checkbox', 'file');
+	        $rowSubForm->addElement('text', 'column_delimiter', array(
+	            'label' => 'Choose Column Delimiter',
+	            'description' => "A single character that will be used to "
+	                . "separate columns in the file to gain repeated elements.",
+	            'value' => "",
+	            'required' => false,
+	            'size' => '1',
+	            'validators' => array(
+	                array('validator' => 'StringLength', 'options' => array(
+	                    'min' => 1,
+	                    'max' => 1,
+	                    'messages' => array(
+	                        Zend_Validate_StringLength::TOO_SHORT =>
+	                            "Column delimiter must be one character long.",
+	                        Zend_Validate_StringLength::TOO_LONG =>
+	                            "Column delimiter must be one character long.",
+	                    ),
+	                )),
+	            ),
+	        ));
             $this->_setSubFormDecorators($rowSubForm);
             $this->addSubForm($rowSubForm, "row$index");
         }
-
+//Additional row for user value
+		$rowSubForm = new Zend_Form_SubForm();
+		$rowSubForm->addElement('text', 'additional', array(
+            'label' => 'Additional Element value for each imported Item',
+            'value' => "",
+            'required' => false,
+            'size' => '25',
+            'validators' => array(
+                array('validator' => 'StringLength', 'options' => array(
+                    'min' => 1,
+                    'max' => 1,
+                    'messages' => array(
+                        Zend_Validate_StringLength::TOO_SHORT =>
+                            "Column delimiter must be one character long.",
+                        Zend_Validate_StringLength::TOO_LONG =>
+                            "Column delimiter must be one character long.",
+                    ),
+                )),
+            ),
+        ));
+        $rowSubForm->addElement('select',
+            'element',
+            array(
+                'class' => 'map-element',
+                'multiOptions' => $elementsByElementSetName,
+            )
+        );
+        $rowSubForm->addElement('checkbox', 'html');
+        $this->_setSubFormDecorators($rowSubForm);
+        $this->addSubForm($rowSubForm, "additional");
+		
         $this->addElement('submit', 'submit',
             array('label' => 'Import Database Table',
                   'class' => 'submit submit-medium'));
@@ -84,6 +131,15 @@ class DatabaseTransfer_Form_Mapping extends Omeka_Form
             }
         }
         return $columnMaps;
+    }
+
+    private function isDelimitedMapped($index)
+    {
+		$isDelimited = (strlen($this->getSubForm("row$index")->column_delimiter->getValue()) !== 0);
+		if ($isDelimited){
+        	return array("delim" => $this->getSubForm("row$index")->column_delimiter->getValue(), "id" => $this->_getRowValue($index, 'element'));
+		}
+		return false;
     }
 
     private function isTagMapped($index)
@@ -134,8 +190,15 @@ class DatabaseTransfer_Form_Mapping extends Omeka_Form
         $columnMap = null;
         if ($this->isTagMapped($index)) {
            $columnMap = new DatabaseTransfer_ColumnMap_Tag($columnName);
+
+        } else if ($settings = $this->isDelimitedMapped($index)) {
+            $columnMap = new DatabaseTransfer_ColumnMap_Delimited($columnName);
+			$columnMap->setDelimiter($settings["delim"]);
+			$columnMap->setOptions(array('elementId' => $settings["id"]));
+			
         } else if ($this->isFileMapped($index)) {
             $columnMap = new DatabaseTransfer_ColumnMap_File($columnName);
+
         } else if ($elementId = $this->getMappedElementId($index)) {
             $columnMap = new DatabaseTransfer_ColumnMap_Element($columnName);
             $columnMap->setOptions(array('elementId' => $elementId,

@@ -14,9 +14,6 @@ class DatabaseTransfer_ImportTask extends Omeka_JobAbstract
         if ($this->_memoryLimit) {
             ini_set('memory_limit', $this->_memoryLimit);
         }
-#		echo "<pre>";
-#		print_r($this->_getImport());
-#		echo "</pre>";
         if (!($import = $this->_getImport())) { //this is where the import programming is retrieved again from the database
 			echo "IMPORT:<br>".$import."<br><br>";
             return;
@@ -25,17 +22,17 @@ class DatabaseTransfer_ImportTask extends Omeka_JobAbstract
         $import->setBatchSize($this->_batchSize);
         call_user_func(array($import, $this->_method));
 
-#        if ($import->isQueued()) {
-#            $this->_dispatcher->setQueueName('imports');
-#            $this->_dispatcher->send(__CLASS__, 
-#                array(
-#                    'importId' => $import->id, 
-#                    'memoryLimit' => $this->_memoryLimit,
-#                    'method' => 'resume',
-#                    'batchSize' => $this->_batchSize,
-#                )
-#            );
-#        }
+        if ($import->isQueued()) {
+            $this->_dispatcher->setQueueName('imports');
+            $this->_dispatcher->send(__CLASS__, 
+                array(
+                    'importId' => $import->id, 
+                    'memoryLimit' => "1024M", #problems!!!!
+                    'method' => 'resume',
+                    'batchSize' => $this->_batchSize,
+                )
+            );
+        }
 	}
 
     public function setBatchSize($size)

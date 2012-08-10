@@ -1,8 +1,8 @@
 <?php 
-    head(array('title' => 'Database Transfer', 'bodyclass' => 'primary', 
+    head(array('title' => 'MySQL Database Transfer', 'bodyclass' => 'primary', 
         'content_class' => 'horizontal-nav'));
 ?>
-<h1>CSV Import</h1>
+<h1>MySQL Database Transfer</h1>
 <?php echo $this->navigation()->menu()->setUlClass('section-nav'); ?>
 
 <div id="primary">
