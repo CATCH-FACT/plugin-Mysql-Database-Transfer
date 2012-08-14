@@ -29,7 +29,7 @@ class DatabaseTransfer_ImportTask extends Omeka_JobAbstract
                     'importId' => $import->id, 
                     'memoryLimit' => "1024M", #problems!!!!
                     'method' => 'resume',
-                    'batchSize' => $this->_batchSize,
+#                    'batchSize' => $this->_batchSize,
                 )
             );
         }

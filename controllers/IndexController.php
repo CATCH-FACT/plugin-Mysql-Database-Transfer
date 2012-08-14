@@ -68,7 +68,7 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
         $form = $this->_getMainForm();
         $this->view->form = $form;
 
-		echo "<H1>MEM limit:".@$dbConfig['memoryLimit']."</H1>";
+		$this->_log("indexAction: %time%, %memory%");
 
         if (!$this->getRequest()->isPost()) {
             return;
@@ -113,8 +113,8 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
         $this->_helper->redirector->goto('choose-table'); //after all is ok: redirect to the next step
     }
     
-
 	public function chooseTableAction(){ //this triggers when the choose-table form button is pushed
+		$this->_log("chooseTableAction: %time%, %memory%");
         require_once DATABASE_TRANSFER_DIRECTORY . '/forms/ChooseTable.php';
         $form = new DatabaseTransfer_Form_ChooseTable(array(
             'tableNames' => $this->session->tableNames,
@@ -136,15 +136,12 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
 
 		$this->session->columnNames = $table->getColumnNames();
 		$this->session->columnExamples = $table->getColumnExampleAsArray();
-#		print "<pre>--: ";
-#		print_r($this->session->columnExamples);
-#		print " :--</pre>";
-
 		$this->_helper->redirector->goto('map-columns'); //redirect if everything is valid
 	}
 
     public function mapColumnsAction()
     {
+		$this->_log("mapColumnsAction: %time%, %memory%");
         if (!$this->_sessionIsValid()) { //check if all the necessary variables have a value
             return $this->_helper->redirector->goto('index');
         }
@@ -172,14 +169,10 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
                 . 'element, file, or tag.');
         }
 
-#       print "<pre>Mappings checked</pre>";
-#		print "<pre>";
-#		print_r($columnMaps);
-#		print "</pre>";
-
-        $databaseTransfer = new DatabaseTransfer_Import(); //this is an omeka record that keeps track of the progress
-
-#		print "<pre>databaseTransfer object made</pre>";
+		$this->_log("attempting to create new DatabaseTransfer_Import: %time%, %memory%");
+        $databaseTransfer = new DatabaseTransfer_Import(); //this is an omeka record that keeps track of the progress and imports the new item
+		$databaseTransfer->setDbTable($this->session->dbTable);
+		$this->_log("new DatabaseTransfer_Import loaded: %time%, %memory%");
 
 		//a loop to transfer session variables to the DatabaseTransfer_Import class
         foreach ($this->session->getIterator() as $key => $value) { 
@@ -203,10 +196,10 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
 	                'batchSize' => @$dbConfig['batchSize'],
 	            )
 		);
-#        $this->session->unsetAll();
-#        $this->flashSuccess('Successfully started the import. Reload this page '
-#            . 'for status updates.');
-#        $this->_helper->redirector->goto('browse');
+        $this->session->unsetAll();
+        $this->flashSuccess('Successfully started the import. Reload this page '
+            . 'for status updates.');
+        $this->_helper->redirector->goto('browse');
 
     }
     
@@ -266,4 +259,17 @@ class DatabaseTransfer_IndexController extends Omeka_Controller_Action
         $this->_helper->redirector->goto('browse');
     }
     
+
+    private function _log($msg, $priority = Zend_Log::DEBUG)
+    {
+        if ($logger = Omeka_Context::getInstance()->getLogger()) {
+            if (strpos($msg, '%time%') !== false) {
+                $msg = str_replace('%time%', Zend_Date::now()->toString(), $msg);
+            }
+            if (strpos($msg, '%memory%') !== false) {
+                $msg = str_replace('%memory%', memory_get_usage(), $msg);
+            }
+            $logger->log('[DatabaseTransfer] ' . $msg, $priority);
+        }
+    }
 }
