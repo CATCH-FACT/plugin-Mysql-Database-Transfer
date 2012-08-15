@@ -83,16 +83,7 @@ class DatabaseTransferPlugin{
         $nav['Database Transfer'] = uri('database-transfer');
         return $nav;
     }
-	
-	/** Stolen by Iwe
-	 * @return array
-	 */
-	function csv_import_get_elements_by_element_set_name($itemTypeId)
-	{
-	    $params = $itemTypeId ? array('item_type_id' => $itemTypeId)
-	                          : array('exclude_item_type' => true);
-	    return get_db()->getTable('Element')->findPairsForSelectForm($params);
-	}
+
 }
 
 ?>

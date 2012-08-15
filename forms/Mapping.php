@@ -13,13 +13,24 @@ class DatabaseTransfer_Form_Mapping extends Omeka_Form
     private $_columnNames = array();
     private $_columnExamples = array();
 
+
+	/** Stolen by Iwe
+	 * @return array
+	 */
+	function database_transfer_get_elements_by_element_set_name($itemTypeId)
+	{
+	    $params = $itemTypeId ? array('item_type_id' => $itemTypeId)
+	                          : array('exclude_item_type' => true);
+	    return get_db()->getTable('Element')->findPairsForSelectForm($params);
+	}
+	
     public function init()
     {
         parent::init();
         $this->setAttrib('id', 'databasetransfer-mapping');
         $this->setMethod('post'); 
 
-        $elementsByElementSetName = csv_import_get_elements_by_element_set_name($this->_itemTypeId);
+        $elementsByElementSetName = $this->database_transfer_get_elements_by_element_set_name($this->_itemTypeId);
         $elementsByElementSetName = array('' => 'Select Below') + $elementsByElementSetName;
 
 	
